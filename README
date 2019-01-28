@@ -1,0 +1,26 @@
+=== ABOUT ===
+
+Lsisp is a program for implementing L-systems, using Lisp. Its name is a terrible portmanteau of those two words.
+
+This project was born out of my interest in (the graphical representations of) L-systems, combined with a desire to improve my Lisping abilities. It is thus a hopefully casual project.
+
+All development and testing is done on a Linux system using SBCL. In keeping with the abovementioned desire to keep this a casual project, I won't be developing or testing on or for any other combinations of OS or Lisp.
+
+
+=== LICENSE ===
+
+Lsisp is released under the GNU GPL v 3.0
+
+
+=== BASIC USE ===
+
+The fundamental function of Lsisp is APPLY-RULES, which takes a set of replacement rules, an initial axiom, and some positive integer, and then applies the replacement rules to that axiom integer number times.
+
+There are a number of built-in rulesets and axioms, based entirely on what I found interesting. These may be called using APPLY-RULES-FROM-NAME. You may also define your own rulesets using the function MAKE-RULES.
+
+=== LIMITATIONS ===
+
+At the moment, here are some things Lsisp can't do:
+    + Graphical representations. This is something I plan to fix soon, since it was half of my initial motivation for the project.
+    + Stochastic or contextual grammars. The former is something I'd like to add support for soon-ish; the latter, later-ish.
+    + Save user-defined rulesets/axioms. But, you can also just edit the source code yourself to do this.
