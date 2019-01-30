@@ -29,6 +29,7 @@
 
 
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; PRE-DEFINED L-SYSTEMS ;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -44,6 +45,7 @@
 	((equal x #\b) (list #\a))
 	(t (list x))))
 (defparameter *algae-axiom* (list #\a))
+(defparameter *algae-variables* (list #\a #\b))
 
 ;; Sierpinski triangle
 ;; variables: f,g (both meaning "draw forwards" by the same amount)
@@ -53,6 +55,7 @@
 	((equal x #\g) (list #\g #\g))
 	(t (list x))))
 (defparameter *sierpinski-axiom* (list #\f #\- #\g #\- #\g))
+(defparameter *sierpinski-variables* (list #\f #\g))
 
 ;; Cantor set
 ;; variables: a,b (meaning "draw forward" and "move forward", both by the same amount)
@@ -62,6 +65,7 @@
 	((equal x #\b) (list #\b #\b #\b))
 	(t (list x))))
 (defparameter *cantor-axiom* (list #\a))
+(defparameter *cantor-variables* (list #\a #\b))
 
 ;; Hilbert curve in two dimensions
 ;; variables: a,b (no meaning)
@@ -71,15 +75,17 @@
 	((equal x #\b) (list #\- #\a #\f #\+ #\b #\f #\b #\+ #\f #\a #\-))
 	(t (list x))))
 (defparameter *hilbert2-axiom* (list #\a))
+(defparameter *hilbert2-variables* (list #\a #\b))
 
 ;; Thue-Morse sequence
 ;; variables: 0,1
 ;; constants: none
 (defun thue-morse-rules (x)
-  (cond ((equal x 0) (list 0 1))
-	((equal x 1) (list 1 0))
+  (cond ((equal x #\0) (list #\0 #\1))
+	((equal x #\1) (list #\1 #\0))
 	(t (list x))))
-(defparameter *thue-morse-axiom* (list 0))
+(defparameter *thue-morse-axiom* (list #\0))
+(defparameter *thue-morse-variables* (list #\0 #\1))
 
 ;; Gosper curve
 ;; variables: f,g (both meaning "draw forwards" by the same amount)
@@ -89,3 +95,30 @@
 	((equal x #\g) (list #\+ #\f #\- #\g #\g #\- #\- #\g #\- #\f #\+ #\+ #\f #\+ #\g))
 	(t (list x))))
 (defparameter *gosper-axiom* (list #\a))
+(defparameter *gosper-variables* (list #\f #\g))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; UTILITY FUNCTIONS ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Converts a list of characters to a string
+(defun chars-to-string (chars) (coerce chars 'string))
+
+;; Prints out the names of the predefined L-systems
+(defun print-names ()
+  (format t "The pre-defined L-systems are: ~{~A~^, ~}" *system-list*))
+
+;; Prints out the axiom and replacement rules for the NAME L-system.
+(defun print-info (name)
+  (let
+      ((axiom (chars-to-string (eval (read-from-string (concatenate 'string "*" name "-axiom*")))))
+       (rules (loop for i in (eval (read-from-string (concatenate 'string "*" name "-variables*")))
+		    collect (list (string i)
+				  (chars-to-string (apply-rules
+						    (eval (read-from-string (concatenate 'string "#'" name "-rules")))
+						    (list i) 1))))))
+    (format t "The axiom for \"~A\" is: ~S~%" name axiom)
+    (format t "The replacement rules for \"~A\" are:~%" name)
+    (format t "~{    ~{~S~^ becomes ~}~^~%~}" rules)))
+  
