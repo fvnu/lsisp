@@ -42,7 +42,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; A list of the pre-defined (and thus protected) system names
-(defparameter *system-list* (list "algae" "cantor" "hilbert2" "sierpinski" "thue-morse" "gosper" "simple-stochastic"))
+(defparameter *system-list* (list "algae" "cantor" "hilbert2" "sierpinski" "thue-morse" "gosper" "simple-stochastic" "simple-contextual"))
 
 ;; Lindenmayer's original algae model
 ;; variables: a,b
@@ -131,12 +131,6 @@
 	(t (list x))))
 (defparameter *simple-contextual-axiom* (list #\a #\b #\c))
 (defparameter *simple-contextual-variables* (list #\a #\b #\c))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; VISUALIZATION FUNCTIONS ;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
