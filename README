@@ -20,6 +20,15 @@ You can give contextual rulesets to APPLY-RULES, but you need to set the key :CO
 
 There are a number of built-in rulesets and axioms, based entirely on what I found interesting (or needed for testing). These may be called using APPLY-RULES-FROM-NAME. You may also define your own rulesets using the function MAKE-RULES.
 
+=== SHOWING RESULTS ===
+
+By default, Lsisp gives as an output from APPLY-RULES* a list of characters. This is not always easy on the eyes. You can use the function CHARS-TO-STRING on the list of characters to make it more readable.
+
+You can also convert this list of characters (a "sentence") to a list of points using SENTENCE-TO-POINTS, according to some dictionary which translates characters into actions of a turtle graphics system.
+The keys of SENTENCE-TO-POINTS control the initial configuration of the pointer, as well as how it steps and turns when told to.
+You can also send the points to a .dat file, for future visualization in whatever program you prefer, by setting :SAVE-AS "filename".
+
+
 === LIMITATIONS ===
 
 At the moment, here are some things Lsisp can't do:
