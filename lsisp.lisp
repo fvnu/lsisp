@@ -96,12 +96,12 @@
 
 ;; Gosper curve
 ;; variables: f,g (both meaning "draw forwards" by the same amount)
-;; constants: +,- (meaning "turn left (by pi/6)", "turn right (by pi/6)")
+;; constants: +,- (meaning "turn left (by pi/3)", "turn right (by pi/3)")
 (defun gosper-rules (x)
   (cond ((equal x #\f) (list #\f #\- #\g #\- #\- #\g #\+ #\f #\+ #\+ #\f #\f #\+ #\g #\-))
 	((equal x #\g) (list #\+ #\f #\- #\g #\g #\- #\- #\g #\- #\f #\+ #\+ #\f #\+ #\g))
 	(t (list x))))
-(defparameter *gosper-axiom* (list #\a))
+(defparameter *gosper-axiom* (list #\f))
 (defparameter *gosper-variables* (list #\f #\g))
 
 ;; A simple stochastic process I made up to test stochastic grammars.
@@ -157,3 +157,44 @@
     (format t "The axiom for \"~A\" is: ~S~%" name axiom)
     (format t "The replacement rules for \"~A\" are:~%" name)
     (format t "~{    ~{~S~^ becomes ~}~^~%~}" rules)))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; VISUALIZATION FUNCTIONS ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Defines a vector of single-floats, with elements given as a list ELEMENTS
+(defun make-vector (&rest elements) (map 'list #'(lambda (x) (float x 1.0s0)) elements))
+
+;; Defines a vector sum operation
+(defun vector+ (v1 v2) (map 'list #'(lambda (e1 e2) (+ e1 e2)) v1 v2))
+
+;; Defines a vector scaling operation
+(defun vector-scale (v a) (map 'list #'(lambda (e) (* a e)) v))
+
+;;Defines a vector rotation operation on a 2d vector
+(defun vector-rotate2 (v p)
+  (let ((x (nth 0 v)) (y (nth 1 v)))
+    (make-vector (+ (* x (cos p)) (* y (sin p))) (- (* y (cos p)) (* x (sin p))))))
+
+;; Given a SENTENCE (in the form of a list of characters), converts it into a list of points according
+;; to the standard set of instructions as defined by the keywords
+(defun sentence-to-points (sentence &key (save-as nil) (initial-pos (make-vector 0 0)) (initial-dir (make-vector 0 1))
+				    (angle (/ pi 2)) (step-size 1.0))
+  (let ((points (list initial-pos))
+	(pos initial-pos)
+	(dir initial-dir)
+	(saved-points '()))
+    (declare (ignore saved-points))
+    (dolist (i sentence)
+      (cond ((or (equal i #\f) (equal i #\g)) (setf pos (vector+ pos (vector-scale dir step-size))) (push pos points))
+	    ((equal i #\+) (setf dir (vector-rotate2 dir angle)))
+	    ((equal i #\-) (setf dir (vector-rotate2 dir (- angle))))
+	    ((or (equal i #\a) (equal i #\b)) );these are "empty" commands when it comes to drawing
+	    (t (format t "I don't recognize ~S as a valid command and have skipped it.~%" i))))
+    (if save-as
+	(with-open-file
+	 (s (format nil "~A.dat" save-as) :direction :output :if-does-not-exist :create :if-exists :overwrite)
+	 (format s "~{~{~$~^ ~}~%~}" points))
+      points)))
