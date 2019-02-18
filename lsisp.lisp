@@ -68,11 +68,11 @@
 ;; variables: f,e (meaning "draw forward" and "move forward", both by the same amount)
 ;; constants: none
 (defun cantor-rules (x)
-  (cond ((equal x #\f) (list #\f #\e #\f))
-	((equal x #\e) (list #\e #\e #\e))
+  (cond ((equal x #\f) (list #\f #\h #\f))
+	((equal x #\h) (list #\h #\h #\h))
 	(t (list x))))
 (defparameter *cantor-axiom* (list #\f))
-(defparameter *cantor-variables* (list #\f #\e))
+(defparameter *cantor-variables* (list #\f #\h))
 
 ;; Hilbert curve in two dimensions
 ;; variables: a,b (no meaning)
@@ -164,6 +164,27 @@
 ;;;; VISUALIZATION FUNCTIONS ;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; Empty characters, i.e., characters which are not supposed to result in any drawing command
+(defvar *empty-characters* (list #\a #\b #\c #\0 #\1))
+
+;; An association list of characters and their interpretation by SENTENCE-TO-POINTS
+(defparameter *dictionary* (list (cons #\a "do nothing") (cons #\b "do nothing") (cons #\c "do nothing")
+				 (cons #\f "draw forwards by :STEP-SIZE") (cons #\g "draw forwards by :STEP-SIZE")
+				 (cons #\h "move forwards by :STEP-SIZE (do not draw)")
+				 (cons #\+ "turn left by :ANGLE")
+				 (cons #\- "turn right by :ANGLE")
+				 (cons #\0 "do nothing") (cons #\1 "do nothing")))
+
+;; For a given character, gives its standard meaning according to *DICTIONARY*
+(defun query-dictionary (character)
+  (let ((entry (assoc character *dictionary*)))
+    (if entry
+	(format t "~c means ~S" (car entry) (cdr entry))
+      (format t "~c is not in the dictionary" character))))
+
+;; Prints the entire dictionary
+(defun print-dictionary () (dolist (entry *dictionary*) (format t "~c means ~S~%" (car entry) (cdr entry))))
+
 ;; Defines a vector of single-floats, with elements given as a list ELEMENTS
 (defun make-vector (&rest elements) (map 'list #'(lambda (x) (float x 1.0s0)) elements))
 
@@ -179,20 +200,34 @@
     (make-vector (+ (* x (cos p)) (* y (sin p))) (- (* y (cos p)) (* x (sin p))))))
 
 ;; Given a SENTENCE (in the form of a list of characters), converts it into a list of points according
-;; to the standard set of instructions as defined by the keywords
+;; to the standard set of instructions as defined by the keywords which follow:
+;;     INITIAL-POS is the starting location of the cursor.
+;;     INITIAL-DIR is the starting pointing of the cursor. This should always be of unit length.
+;;     ANGLE is the angle (in radians) by which the #\+ or #\- commands will rotate the cursor.
+;;     STEP-SIZE is how far the cursor will move (arb. units)
+;; Returns by default a list of the points, but setting :SAVE-AS to some string will instead save the points to
+;; the file ":SAVE-AS.dat". Note that this will destructively overwrite any existing files by that name.
 (defun sentence-to-points (sentence &key (save-as nil) (initial-pos (make-vector 0 0)) (initial-dir (make-vector 0 1))
 				    (angle (/ pi 2)) (step-size 1.0))
   (let ((points (list initial-pos))
 	(pos initial-pos)
 	(dir initial-dir)
-	(saved-points '()))
-    (declare (ignore saved-points))
+	(saved-data '()))
+    (declare (ignore saved-data));this will be relevant for L-systems that save/recall positions, e.g., a binary tree
     (dolist (i sentence)
-      (cond ((or (equal i #\f) (equal i #\g)) (setf pos (vector+ pos (vector-scale dir step-size))) (push pos points))
-	    ((equal i #\+) (setf dir (vector-rotate2 dir angle)))
-	    ((equal i #\-) (setf dir (vector-rotate2 dir (- angle))))
-	    ((or (equal i #\a) (equal i #\b)) );these are "empty" commands when it comes to drawing
-	    (t (format t "I don't recognize ~S as a valid command and have skipped it.~%" i))))
+      (cond
+       ;;meaning "draw forwards"
+       ((or (equal i #\f) (equal i #\g)) (setf pos (vector+ pos (vector-scale dir step-size))) (push pos points))
+       ;;meaning "move forwards (but do not draw)"
+       ((equal i #\h) (setf pos (vector+ pos (vector-scale dir step-size))) (push nil points) (push pos points))
+       ;;meaning "turn ccw by ANGLE"
+       ((equal i #\+) (setf dir (vector-rotate2 dir (- angle))))
+       ;;meaning "turn cw by ANGLE"
+       ((equal i #\-) (setf dir (vector-rotate2 dir angle)))
+       ;;meaning nothing, but still possibly present in a sentence
+       ((member i *empty-characters*))
+       ;;no defined meaning
+       (t (format t "I don't recognize ~S as a valid command and have skipped it.~%" i))))
     (if save-as
 	(with-open-file
 	 (s (format nil "~A.dat" save-as) :direction :output :if-does-not-exist :create :if-exists :overwrite)
