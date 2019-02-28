@@ -42,7 +42,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; A list of the pre-defined (and thus protected) system names
-(defparameter *system-list* (list "algae" "cantor" "hilbert2" "sierpinski" "thue-morse" "gosper" "simple-stochastic" "simple-contextual"))
+(defparameter *system-list* (list "algae" "cantor" "hilbert2" "sierpinski" "thue-morse" "gosper" "binary-tree" "simple-stochastic" "simple-contextual"))
 
 ;; Lindenmayer's original algae model
 ;; variables: a,b
@@ -68,11 +68,11 @@
 ;; variables: f,e (meaning "draw forward" and "move forward", both by the same amount)
 ;; constants: none
 (defun cantor-rules (x)
-  (cond ((equal x #\f) (list #\f #\e #\f))
-	((equal x #\e) (list #\e #\e #\e))
+  (cond ((equal x #\f) (list #\f #\h #\f))
+	((equal x #\h) (list #\h #\h #\h))
 	(t (list x))))
 (defparameter *cantor-axiom* (list #\f))
-(defparameter *cantor-variables* (list #\f #\e))
+(defparameter *cantor-variables* (list #\f #\h))
 
 ;; Hilbert curve in two dimensions
 ;; variables: a,b (no meaning)
@@ -96,13 +96,23 @@
 
 ;; Gosper curve
 ;; variables: f,g (both meaning "draw forwards" by the same amount)
-;; constants: +,- (meaning "turn left (by pi/6)", "turn right (by pi/6)")
+;; constants: +,- (meaning "turn left (by pi/3)", "turn right (by pi/3)")
 (defun gosper-rules (x)
   (cond ((equal x #\f) (list #\f #\- #\g #\- #\- #\g #\+ #\f #\+ #\+ #\f #\f #\+ #\g #\-))
 	((equal x #\g) (list #\+ #\f #\- #\g #\g #\- #\- #\g #\- #\f #\+ #\+ #\f #\+ #\g))
 	(t (list x))))
-(defparameter *gosper-axiom* (list #\a))
+(defparameter *gosper-axiom* (list #\f))
 (defparameter *gosper-variables* (list #\f #\g))
+
+;; Binary tree
+;; Variables: f,g (both meaning "draw forwards" by the same amount)
+;; constants: [,] (meaning "store current position/pointing, turn left (by pi/4)" and "retrieve last stored position/pointing, turn right (by pi/4)")
+(defun binary-tree-rules (x)
+  (cond ((equal x #\f) (list #\g #\[ #\f #\] #\f))
+	((equal x #\g) (list #\g #\g))
+	(t (list x))))
+(defparameter *binary-tree-axiom* (list #\f))
+(defparameter *binary-tree-variables* (list #\f #\g))
 
 ;; A simple stochastic process I made up to test stochastic grammars.
 ;; variables: a,b
@@ -117,8 +127,7 @@
 ;; A simple contextual process I made up to test contextual grammars.
 ;; PRE means the element before X (the "predecessor")
 ;; SUC means the element after X (the "successor")
-;; X has the same meaning as is implied in context-free languages, i.e., it is the element of the list that we're
-;; applying the ruleset to.
+;; X has the same meaning as is implied in context-free languages, i.e., it is the element of the list that we're applying the ruleset to.
 ;; variables: a,b,c
 ;; constants: none
 (defun simple-contextual-rules (pre x suc)
@@ -157,3 +166,89 @@
     (format t "The axiom for \"~A\" is: ~S~%" name axiom)
     (format t "The replacement rules for \"~A\" are:~%" name)
     (format t "~{    ~{~S~^ becomes ~}~^~%~}" rules)))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; VISUALIZATION FUNCTIONS ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Empty characters, i.e., characters which are not supposed to result in any drawing command
+(defvar *empty-characters* (list #\a #\b #\c #\0 #\1))
+
+;; An association list of characters and their interpretation by SENTENCE-TO-POINTS
+(defparameter *dictionary* (list (cons #\a "do nothing") (cons #\b "do nothing") (cons #\c "do nothing")
+				 (cons #\f "draw forwards by :STEP-SIZE") (cons #\g "draw forwards by :STEP-SIZE")
+				 (cons #\h "move forwards by :STEP-SIZE (do not draw)")
+				 (cons #\+ "turn left by :ANGLE")
+				 (cons #\- "turn right by :ANGLE")
+				 (cons #\[ "store current position and direction; turn ccw by :ANGLE")
+				 (cons #\[ "load position and direction; turn cw by :ANGLE")
+				 (cons #\0 "do nothing") (cons #\1 "do nothing")))
+
+;; For a given character, gives its standard meaning according to *DICTIONARY*
+(defun query-dictionary (character)
+  (let ((entry (assoc character *dictionary*)))
+    (if entry
+	(format t "~c means ~S" (car entry) (cdr entry))
+      (format t "~c is not in the dictionary" character))))
+
+;; Prints the entire dictionary
+(defun print-dictionary () (dolist (entry *dictionary*) (format t "~c means ~S~%" (car entry) (cdr entry))))
+
+;; Defines a vector of single-floats, with elements given as a list ELEMENTS
+(defun make-vector (&rest elements) (map 'list #'(lambda (x) (float x 1.0s0)) elements))
+
+;; Defines a vector sum operation
+(defun vector+ (v1 v2) (map 'list #'(lambda (e1 e2) (+ e1 e2)) v1 v2))
+
+;; Defines a vector scaling operation
+(defun vector-scale (v a) (map 'list #'(lambda (e) (* a e)) v))
+
+;;Defines a vector rotation operation on a 2d vector
+(defun vector-rotate2 (v p)
+  (let ((x (nth 0 v)) (y (nth 1 v)))
+    (make-vector (+ (* x (cos p)) (* y (sin p))) (- (* y (cos p)) (* x (sin p))))))
+
+;; Given a SENTENCE (in the form of a list of characters), converts it into a list of points according
+;; to the standard set of instructions as defined by the keywords which follow:
+;;     INITIAL-POS is the starting location of the cursor.
+;;     INITIAL-DIR is the starting pointing of the cursor. This should always be of unit length.
+;;     ANGLE is the angle (in radians) by which the #\+ or #\- commands will rotate the cursor.
+;;     STEP-SIZE is how far the cursor will move (arb. units)
+;; Returns by default a list of the points, but setting :SAVE-AS to some string will instead save the points to
+;; the file ":SAVE-AS.dat". Note that this will destructively overwrite any existing files by that name.
+(defun sentence-to-points (sentence &key (save-as nil) (initial-pos (make-vector 0 0)) (initial-dir (make-vector 0 1))
+				    (angle (/ pi 2)) (step-size 1.0))
+  (let ((points (list initial-pos))
+	(pos initial-pos)
+	(dir initial-dir)
+	(saved-data nil))
+    (dolist (i sentence)
+      (cond
+       ;;meaning "draw forwards"
+       ((or (equal i #\f) (equal i #\g)) (setf pos (vector+ pos (vector-scale dir step-size))) (push pos points))
+       ;;meaning "move forwards (but do not draw)"
+       ((equal i #\h) (setf pos (vector+ pos (vector-scale dir step-size))) (push nil points) (push pos points))
+       ;;meaning "turn ccw by ANGLE"
+       ((equal i #\+) (setf dir (vector-rotate2 dir (- angle))))
+       ;;meaning "turn cw by ANGLE"
+       ((equal i #\-) (setf dir (vector-rotate2 dir angle)))
+       ;;meaning:
+       ((equal i #\[)
+	(push (list pos dir) saved-data) ;store the current position and direction
+	(setf dir (vector-rotate2 dir (- angle)))) ;turn ccw by ANGLE
+       ;;meaning:
+       ((equal i #\])
+	(push nil points) ;make a new branch
+	(multiple-value-setq (pos dir) (values-list (pop saved-data))) (push pos points) ;load the last saved position and direction
+	(setf dir (vector-rotate2 dir angle))) ;turn cw by ANGLE
+       ;;meaning nothing, but still possibly present in a sentence
+       ((member i *empty-characters*))
+       ;;no defined meaning
+       (t (format t "I don't recognize ~S as a valid command and have skipped it.~%" i))))
+    (if save-as
+	(with-open-file
+	 (s (format nil "~A.dat" save-as) :direction :output :if-does-not-exist :create :if-exists :overwrite)
+	 (format s "~{~{~$~^ ~}~%~}" points))
+      points)))
