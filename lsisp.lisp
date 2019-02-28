@@ -104,6 +104,16 @@
 (defparameter *gosper-axiom* (list #\f))
 (defparameter *gosper-variables* (list #\f #\g))
 
+;; Binary tree
+;; Variables: f,g (both meaning "draw forwards" by the same amount)
+;; constants: [,] (meaning "store current position/pointing, turn left (by pi/4)" and "retrieve last stored position/pointing, turn right (by pi/4)")
+(defun binary-tree-rules (x)
+  (cond ((equal x #\f) (list #\g #\[ #\f #\] #\f))
+	((equal x #\g) (list #\g #\g))
+	(t (list x))))
+(defparameter *binary-tree-axiom* (list #\f))
+(defparameter *binary-tree-variables* (list #\f #\g))
+
 ;; A simple stochastic process I made up to test stochastic grammars.
 ;; variables: a,b
 ;; constants: none
@@ -117,8 +127,7 @@
 ;; A simple contextual process I made up to test contextual grammars.
 ;; PRE means the element before X (the "predecessor")
 ;; SUC means the element after X (the "successor")
-;; X has the same meaning as is implied in context-free languages, i.e., it is the element of the list that we're
-;; applying the ruleset to.
+;; X has the same meaning as is implied in context-free languages, i.e., it is the element of the list that we're applying the ruleset to.
 ;; variables: a,b,c
 ;; constants: none
 (defun simple-contextual-rules (pre x suc)
@@ -173,6 +182,8 @@
 				 (cons #\h "move forwards by :STEP-SIZE (do not draw)")
 				 (cons #\+ "turn left by :ANGLE")
 				 (cons #\- "turn right by :ANGLE")
+				 (cons #\[ "store current position and direction; turn ccw by :ANGLE")
+				 (cons #\[ "load position and direction; turn cw by :ANGLE")
 				 (cons #\0 "do nothing") (cons #\1 "do nothing")))
 
 ;; For a given character, gives its standard meaning according to *DICTIONARY*
@@ -212,8 +223,7 @@
   (let ((points (list initial-pos))
 	(pos initial-pos)
 	(dir initial-dir)
-	(saved-data '()))
-    (declare (ignore saved-data));this will be relevant for L-systems that save/recall positions, e.g., a binary tree
+	(saved-data nil))
     (dolist (i sentence)
       (cond
        ;;meaning "draw forwards"
@@ -224,6 +234,15 @@
        ((equal i #\+) (setf dir (vector-rotate2 dir (- angle))))
        ;;meaning "turn cw by ANGLE"
        ((equal i #\-) (setf dir (vector-rotate2 dir angle)))
+       ;;meaning:
+       ((equal i #\[)
+	(push (list pos dir) saved-data) ;store the current position and direction
+	(setf dir (vector-rotate2 dir (- angle)))) ;turn ccw by ANGLE
+       ;;meaning:
+       ((equal i #\])
+	(push nil points) ;make a new branch
+	(multiple-value-setq (pos dir) (values-list (pop saved-data))) (push pos points) ;load the last saved position and direction
+	(setf dir (vector-rotate2 dir angle))) ;turn cw by ANGLE
        ;;meaning nothing, but still possibly present in a sentence
        ((member i *empty-characters*))
        ;;no defined meaning
